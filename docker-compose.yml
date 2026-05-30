@@ -1,0 +1,17 @@
+version: '3.8'
+services:
+  feishu-lookup:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      - PORT=3000
+      - API_KEYS=${API_KEYS}
+      - CLI_TIMEOUT_MS=30000
+      - RATE_LIMIT_PER_MINUTE=30
+    volumes:
+      - feishu_cli_config:/root/.feishu-cli
+    restart: unless-stopped
+
+volumes:
+  feishu_cli_config:
