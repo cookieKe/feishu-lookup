@@ -45,7 +45,7 @@ async function searchUserByMobile(phone: string): Promise<string | null> {
 
   const result = await runLarkCliJson<BatchGetIdResponse>([
     'api', 'GET',
-    `/open-apis/contact/v3/users/batch_get_id?mobile=${cleanPhone}`,
+    `/open-apis/contact/v3/users/batch_get_id?mobiles=${cleanPhone}`,
     '--as', 'user',
   ]);
 
