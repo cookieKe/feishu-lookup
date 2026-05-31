@@ -158,18 +158,17 @@ describe('CLI Service (integration)', () => {
 });
 
 /**
- * 真实 CLI 验证（仅在 lark-cli 可用时运行）
+ * 真实 CLI 验证（设置 LARK_CLI_E2E=1 开启）
  *
- * 以下测试会实际调用 lark-cli，用于验证命令格式是否正确。
- * 运行方式: LARK_CLI_E2E=1 npx vitest run tests/integration/cli.test.ts
- *
- * 这些测试不会 mock execFile，而是直接调用系统上的 lark-cli。
+ * 这些测试不 mock execFile，直接调用系统上的 lark-cli。
  * 运行前需要确保:
  *   1. lark-cli 已安装: npm install -g @larksuite/cli
  *   2. 已完成认证: lark-cli auth login
  *   3. 网络可访问飞书 API
  */
-describe.skip('CLI Service (real CLI smoke tests)', () => {
+const runRealCli = process.env.LARK_CLI_E2E === '1';
+
+describe('CLI Service (real CLI smoke tests)', { skip: !runRealCli }, () => {
   it('contact +search-user --help should exit 0', async () => {
     const result = await runLarkCli([
       'contact', '+search-user', '--help',
@@ -180,9 +179,15 @@ describe.skip('CLI Service (real CLI smoke tests)', () => {
 
   it('contact +search-user should accept --query flag', async () => {
     const result = await runLarkCli([
-      'contact', '+search-user', '--query', 'test_keyword_not_exist', '--format', 'json',
+      'contact', '+search-user', '--query', 'test_keyword', '--format', 'json',
     ]);
-    // 即使找不到用户，CLI 也应正常退出（exit 0），只是返回空结果
+    expect(result.success).toBe(true);
+  });
+
+  it('contact +search-user --user-ids should work', async () => {
+    const result = await runLarkCli([
+      'contact', '+search-user', '--user-ids', 'me', '--format', 'json',
+    ]);
     expect(result.success).toBe(true);
   });
 
@@ -194,15 +199,24 @@ describe.skip('CLI Service (real CLI smoke tests)', () => {
     expect(result.success).toBe(true);
   });
 
-  it('calendar events instance_view should accept --params', async () => {
+  it('calendar events instance_view primary should work', async () => {
     const result = await runLarkCli([
-      'calendar', 'events', 'instance_view',
+      'calendar', 'events', 'instance_view', 'primary',
       '--params', '{"user_id":"ou_nonexistent","start_time":"2020-01-01T00:00:00+08:00","end_time":"2020-01-01T23:59:59+08:00"}',
       '--format', 'json',
     ]);
-    // calendar API 调用可能因权限/用户不存在而失败，但命令格式应正确
-    // 不检查 success，只检查不是 "unknown flag" 之类的错误
     expect(result.stderr).not.toContain('unknown flag');
     expect(result.stderr).not.toContain('unknown command');
+  });
+
+  it('api POST batch_get_id should resolve user by mobile', async () => {
+    const result = await runLarkCli([
+      'api', 'POST', '/open-apis/contact/v3/users/batch_get_id',
+      '--data', '{"mobiles":["13811751328"]}',
+      '--as', 'bot',
+    ]);
+    expect(result.success).toBe(true);
+    const body = JSON.parse(result.stdout);
+    expect(body.code).toBe(0);
   });
 });
