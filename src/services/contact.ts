@@ -22,28 +22,43 @@ interface SearchUserResponse {
 }
 
 /**
+ * batch_get_id API 返回结构
+ * 参考: https://open.feishu.cn/document/server-docs/contact-v3/user/batch_get_id
+ */
+interface BatchGetIdResponse {
+  code: number;
+  msg?: string;
+  data?: {
+    user_list?: Array<{ user_id: string }>;
+  };
+}
+
+/**
  * 通过手机号搜索飞书用户。
- * 使用 +search-user --query，支持姓名 / 邮箱 / 手机号关键词。
+ *
+ * 使用飞书专用 API batch_get_id?mobile= 而非 +search-user --query 全文搜索，
+ * 因为后者不索引手机号字段（受通讯录隐私设置影响）。
  */
 async function searchUserByMobile(phone: string): Promise<string | null> {
-  const result = await runLarkCliJson<SearchUserResponse>([
-    'contact', '+search-user',
-    '--query', phone,
-    '--format', 'json',
+  // 飞书 API 的 mobile 参数不需要 + 前缀
+  const cleanPhone = phone.replace(/^\+/, '');
+
+  const result = await runLarkCliJson<BatchGetIdResponse>([
+    'api', 'GET',
+    `/open-apis/contact/v3/users/batch_get_id?mobile=${cleanPhone}`,
     '--as', 'user',
   ]);
 
   if (!result.success) {
-    throw new Error(`搜索用户失败: ${result.error}`);
+    throw new Error(`通过手机号查找用户失败: ${result.error}`);
   }
 
-  const data = result.data;
-  if (!data?.data?.users || data.data.users.length === 0) {
+  // batch_get_id 返回 code: 0 表示成功，非 0 可能用户不存在
+  if (result.data?.code !== 0 || !result.data?.data?.user_list || result.data.data.user_list.length === 0) {
     return null;
   }
 
-  // 取第一个匹配的 open_id
-  return data.data.users[0]?.open_id || null;
+  return result.data.data.user_list[0]?.user_id || null;
 }
 
 /**
