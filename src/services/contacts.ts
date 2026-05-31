@@ -54,17 +54,43 @@ export interface ContactListResult {
 }
 
 /**
- * 列出企业通讯录中的成员（使用 search/v1/user）。
+ * 列出企业通讯录中的成员。
+ * 先按手机号查 A 的用户名，再以用户名为关键词搜索通讯录。
  */
-export async function listContacts(_phone: string): Promise<ContactListResult> {
+export async function listContacts(phone: string): Promise<ContactListResult> {
+  const cleanPhone = phone.replace(/^\+/, '');
+
+  // 1. 查手机号 → 获取用户名
+  const aResult = await runLarkCliJson<BatchGetIdResponse>([
+    'api', 'POST', '/open-apis/contact/v3/users/batch_get_id',
+    '--data', JSON.stringify({ mobiles: [cleanPhone] }),
+    '--as', 'bot',
+  ]);
+  if (!aResult.success || aResult.data?.code !== 0 || !aResult.data?.data?.user_list?.[0]) {
+    throw new Error('未匹配到手机号关联的飞书用户');
+  }
+  const aUserId = aResult.data.data.user_list[0].user_id;
+
+  const detailResult = await runLarkCliJson<UserDetailResponse>([
+    'contact', '+search-user',
+    '--user-ids', aUserId,
+    '--format', 'json',
+    '--as', 'user',
+  ]);
+  const userName = detailResult.success ? detailResult.data?.data?.users?.[0]?.localized_name : '';
+  if (!userName) {
+    throw new Error('获取用户名失败');
+  }
+
+  // 2. 用用户名搜索通讯录
   const all: ContactListItem[] = [];
   let pageToken = '';
   const maxPages = 4;
 
   for (let i = 0; i < maxPages; i++) {
     const url = pageToken
-      ? `/open-apis/search/v1/user?query=*&page_size=50&page_token=${pageToken}`
-      : '/open-apis/search/v1/user?query=*&page_size=50';
+      ? `/open-apis/search/v1/user?query=${encodeURIComponent(userName)}&page_size=50&page_token=${pageToken}`
+      : `/open-apis/search/v1/user?query=${encodeURIComponent(userName)}&page_size=50`;
 
     const result = await runLarkCliJson<SearchUserResponse>([
       'api', 'GET', url,
@@ -79,7 +105,7 @@ export async function listContacts(_phone: string): Promise<ContactListResult> {
     for (const u of users) {
       all.push({
         name: u.name || '',
-        mobile: '', // search/v1/user 不返回手机号
+        mobile: '',
         email: '',
         department: Array.isArray(u.department_ids) ? u.department_ids.join(',') : '',
       });
@@ -117,43 +143,48 @@ export async function checkContact(
     throw new Error('未匹配到手机号A关联的飞书用户');
   }
 
-  // 2. 用 search/v1/user 搜 B 的手机号
-  const searchResult = await runLarkCliJson<SearchUserResponse>([
-    'api', 'GET',
-    `/open-apis/search/v1/user?query=${cleanB}&page_size=5`,
-    '--as', 'user',
+  // 2. 查 B 的用户名
+  const bIdResult = await runLarkCliJson<BatchGetIdResponse>([
+    'api', 'POST', '/open-apis/contact/v3/users/batch_get_id',
+    '--data', JSON.stringify({ mobiles: [cleanB] }),
+    '--as', 'bot',
   ]);
-
-  if (!searchResult.success || searchResult.data?.code !== 0) {
+  if (!bIdResult.success || bIdResult.data?.code !== 0 || !bIdResult.data?.data?.user_list?.[0]) {
     return { is_contact: false, contact: null };
   }
+  const bUserId = bIdResult.data.data.user_list[0].user_id;
 
-  const users = searchResult.data?.data?.users;
-  if (!users?.length) {
-    return { is_contact: false, contact: null };
-  }
-
-  // 3. 取第一个匹配用户的详情
-  const userId = users[0].open_id;
-  if (!userId) return { is_contact: false, contact: null };
-
-  const detailResult = await runLarkCliJson<UserDetailResponse>([
+  const bDetailResult = await runLarkCliJson<UserDetailResponse>([
     'contact', '+search-user',
-    '--user-ids', userId,
+    '--user-ids', bUserId,
     '--format', 'json',
     '--as', 'user',
   ]);
+  const bUserName = bDetailResult.success ? bDetailResult.data?.data?.users?.[0]?.localized_name : '';
+  if (!bUserName) return { is_contact: false, contact: null };
 
-  const u = detailResult.success ? detailResult.data?.data?.users?.[0] : null;
-  if (!u) return { is_contact: false, contact: null };
+  // 3. 用 B 的用户名搜索通讯录确认
+  const searchResult = await runLarkCliJson<SearchUserResponse>([
+    'api', 'GET',
+    `/open-apis/search/v1/user?query=${encodeURIComponent(bUserName)}&page_size=5`,
+    '--as', 'user',
+  ]);
+
+  // 4. 在搜索结果中匹配 B 的 open_id
+  const users = searchResult.success ? searchResult.data?.data?.users : null;
+  const matched = users?.find((u) => u.open_id === bUserId);
+
+  if (!matched) {
+    return { is_contact: false, contact: null };
+  }
 
   return {
     is_contact: true,
     contact: {
-      name: u.localized_name,
-      department: u.department || '',
+      name: matched.name || bUserName,
+      department: Array.isArray(matched.department_ids) ? matched.department_ids.join(',') : '',
       title: '',
-      email: u.enterprise_email || u.email || '',
+      email: '',
       mobile: phoneB,
     },
   };
