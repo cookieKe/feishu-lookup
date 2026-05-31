@@ -36,17 +36,20 @@ interface BatchGetIdResponse {
 /**
  * 通过手机号搜索飞书用户。
  *
- * 使用飞书专用 API batch_get_id?mobile= 而非 +search-user --query 全文搜索，
- * 因为后者不索引手机号字段（受通讯录隐私设置影响）。
+ * 使用飞书专用 API POST batch_get_id，因为：
+ * 1. +search-user --query 全文搜索不索引手机号字段
+ * 2. batch_get_id 是 POST 接口，mobiles 放在 body 里
+ * 3. 需要 bot 身份（应用级权限 contact:contact:readonly_as_app）
  */
 async function searchUserByMobile(phone: string): Promise<string | null> {
-  // 飞书 API 的 mobile 参数不需要 + 前缀
+  // 飞书 API 的 mobiles 参数不需要 + 前缀
   const cleanPhone = phone.replace(/^\+/, '');
 
   const result = await runLarkCliJson<BatchGetIdResponse>([
-    'api', 'GET',
-    `/open-apis/contact/v3/users/batch_get_id?mobiles=${cleanPhone}`,
-    '--as', 'user',
+    'api', 'POST',
+    '/open-apis/contact/v3/users/batch_get_id',
+    '--data', JSON.stringify({ mobiles: [cleanPhone] }),
+    '--as', 'bot',
   ]);
 
   if (!result.success) {
