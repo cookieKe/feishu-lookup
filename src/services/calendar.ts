@@ -70,7 +70,7 @@ export async function lookupCalendar(
   });
 
   const result = await runLarkCliJson<InstanceViewResponse>([
-    'calendar', 'events', 'instance_view',
+    'calendar', 'events', 'instance_view', 'primary',
     '--params', params,
     '--format', 'json',
     '--as', 'user',

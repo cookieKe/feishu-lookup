@@ -103,9 +103,9 @@ async function getUserInfo(userId: string): Promise<UserInfo | null> {
 
 /**
  * 通过手机号查询用户完整信息。
- * 返回用户信息，或未找到时返回 null。
+ * 返回 { userId, userInfo }，或未找到时返回 null。
  */
-export async function lookupUserByPhone(phone: string): Promise<UserInfo | null> {
+export async function lookupUserByPhone(phone: string): Promise<{ userId: string; userInfo: UserInfo } | null> {
   const userId = await searchUserByMobile(phone);
   if (!userId) {
     return null;
@@ -115,6 +115,7 @@ export async function lookupUserByPhone(phone: string): Promise<UserInfo | null>
   if (userInfo) {
     // 用查询时的手机号回填 mobile 字段（+search-user 输出不包含 mobile）
     userInfo.mobile = phone;
+    return { userId, userInfo };
   }
-  return userInfo;
+  return null;
 }

@@ -32,16 +32,25 @@ router.post('/lookup', async (req: Request, res: Response) => {
 
   try {
     // 2. 查询用户
-    const user = await lookupUserByPhone(phone);
+    const userResult = await lookupUserByPhone(phone);
+    if (!userResult) {
+      res.status(404).json({
+        code: ErrorCode.USER_NOT_FOUND,
+        message: '未匹配到该手机号关联的飞书用户',
+      });
+      return;
+    }
 
-    // 3. 并行查询日程和会议
+    const { userId, userInfo } = userResult;
+
+    // 3. 并行查询日程和会议（使用 userId，非 phone）
     const [calendar, meetings] = await Promise.all([
-      lookupCalendar(phone, time_from, time_to),
-      lookupMeetings(phone),
+      lookupCalendar(userId, time_from, time_to),
+      lookupMeetings(userId),
     ]);
 
     // 4. 聚合响应
-    const response = aggregateResult(user, calendar, meetings);
+    const response = aggregateResult(userInfo, calendar, meetings);
 
     const duration = Date.now() - startTime;
     logger.info('Lookup completed', {
