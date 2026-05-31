@@ -44,10 +44,10 @@ router.post('/contacts/check', async (req: Request, res: Response) => {
   }
 });
 
-router.get('/contacts', async (req: Request, res: Response) => {
-  const phone = typeof req.query.phone === 'string' ? req.query.phone.trim() : '';
+router.post('/contacts', async (req: Request, res: Response) => {
+  const { phone } = req.body as Record<string, unknown>;
 
-  if (!phone) {
+  if (typeof phone !== 'string' || !phone.trim()) {
     res.status(400).json({ code: ErrorCode.MISSING_PHONE, message: '缺少 phone 参数' });
     return;
   }

@@ -21,17 +21,6 @@ async function post(path: string, data: unknown) {
   } finally { clearTimeout(t); }
 }
 
-async function get(path: string) {
-  const h: Record<string, string> = {};
-  if (API_KEY) h['Authorization'] = `Bearer ${API_KEY}`;
-  const c = new AbortController();
-  const t = setTimeout(() => c.abort(), TIMEOUT);
-  try {
-    const r = await fetch(`${BASE_URL}${path}`, { headers: h, signal: c.signal });
-    return { status: r.status, body: await r.json() as Record<string, unknown> };
-  } finally { clearTimeout(t); }
-}
-
 beforeAll(async () => {
   try {
     const r = await fetch(`${BASE_URL}/api/v1/health`, { signal: AbortSignal.timeout(5000) });
@@ -91,10 +80,10 @@ describe('POST /api/v1/contacts/check', () => {
   });
 });
 
-describe('GET /api/v1/contacts', () => {
+describe('POST /api/v1/contacts', () => {
   it('列出通讯录成员 → 200', async () => {
     if (!ok || !PHONE_A || !API_KEY) return;
-    const { status, body } = await get(`/api/v1/contacts?phone=${encodeURIComponent(PHONE_A)}`);
+    const { status, body } = await post('/api/v1/contacts', { phone: PHONE_A });
     expect(status).toBe(200);
     expect(body.code).toBe(0);
     const data = body.data as Record<string, unknown>;
