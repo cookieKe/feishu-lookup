@@ -6,6 +6,7 @@ import { rateLimitMiddleware } from './middleware/rateLimit';
 import { logger } from './utils/logger';
 import healthRouter from './routes/health';
 import lookupRouter from './routes/lookup';
+import contactsRouter from './routes/contacts';
 
 const app = express();
 
@@ -18,6 +19,7 @@ app.use('/api/v1', healthRouter);
 
 // 查询路由（需要认证 + 限流）
 app.use('/api/v1', authMiddleware, rateLimitMiddleware, lookupRouter);
+app.use('/api/v1', authMiddleware, rateLimitMiddleware, contactsRouter);
 
 // 全局错误处理
 app.use(
