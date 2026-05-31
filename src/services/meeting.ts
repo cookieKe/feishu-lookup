@@ -37,6 +37,7 @@ export async function lookupMeetings(userId: string): Promise<MeetingRecord[]> {
     '--start', formatDate(thirtyDaysAgo),
     '--end', formatDate(now),
     '--format', 'json',
+    '--as', 'user',
   ]);
 
   if (!result.success) {

@@ -73,6 +73,7 @@ export async function lookupCalendar(
     'calendar', 'events', 'instance_view',
     '--params', params,
     '--format', 'json',
+    '--as', 'user',
   ]);
 
   if (!result.success) {

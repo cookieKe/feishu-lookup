@@ -30,6 +30,7 @@ async function searchUserByMobile(phone: string): Promise<string | null> {
     'contact', '+search-user',
     '--query', phone,
     '--format', 'json',
+    '--as', 'user',
   ]);
 
   if (!result.success) {
@@ -55,6 +56,7 @@ async function getUserInfo(userId: string): Promise<UserInfo | null> {
     'contact', '+search-user',
     '--user-ids', userId,
     '--format', 'json',
+    '--as', 'user',
   ]);
 
   if (!result.success) {
