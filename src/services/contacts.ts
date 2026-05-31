@@ -23,6 +23,84 @@ export interface ContactCheckResult {
   contact: UserInfo | null;
 }
 
+interface ListUsersItem {
+  open_id: string;
+  name: string;
+  mobile?: string;
+  email?: string;
+  department_ids?: string[];
+}
+
+interface ListUsersResponse {
+  code: number;
+  data?: {
+    items?: ListUsersItem[];
+    has_more?: boolean;
+    page_token?: string;
+  };
+}
+
+export interface ContactListItem {
+  name: string;
+  mobile: string;
+  email: string;
+  department: string;
+}
+
+export interface ContactListResult {
+  contacts: ContactListItem[];
+  total: number;
+  has_more: boolean;
+}
+
+/**
+ * 列出企业通讯录中的成员。
+ * 分页获取，最多 200 条。
+ */
+export async function listContacts(_phone: string): Promise<ContactListResult> {
+  const all: ContactListItem[] = [];
+  let pageToken = '';
+  const maxPages = 4; // 50 * 4 = 200
+
+  for (let i = 0; i < maxPages; i++) {
+    const url = pageToken
+      ? `/open-apis/contact/v3/users?page_size=50&page_token=${pageToken}`
+      : '/open-apis/contact/v3/users?page_size=50';
+
+    const result = await runLarkCliJson<ListUsersResponse>([
+      'api', 'GET', url,
+      '--as', 'user',
+    ]);
+
+    if (!result.success || result.data?.code !== 0) {
+      break;
+    }
+
+    const items = result.data?.data?.items;
+    if (!items?.length) break;
+
+    for (const u of items) {
+      all.push({
+        name: u.name || '',
+        mobile: u.mobile || '',
+        email: u.email || '',
+        department: Array.isArray(u.department_ids) ? u.department_ids.join(',') : '',
+      });
+    }
+
+    const hasMore = result.data?.data?.has_more;
+    if (!hasMore) break;
+    pageToken = result.data?.data?.page_token || '';
+    if (!pageToken) break;
+  }
+
+  return {
+    contacts: all,
+    total: all.length,
+    has_more: all.length >= 200,
+  };
+}
+
 /**
  * 以 A 的号码查通讯录，看 B 是否在其中。
  * 只做通讯录匹配，不做日历/会议查询。

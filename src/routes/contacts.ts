@@ -1,5 +1,5 @@
 import { Router, type Request, type Response } from 'express';
-import { checkContact } from '../services/contacts';
+import { checkContact, listContacts } from '../services/contacts';
 import { logger } from '../utils/logger';
 import { ErrorCode } from '../types';
 
@@ -41,6 +41,24 @@ router.post('/contacts/check', async (req: Request, res: Response) => {
       code: ErrorCode.CLI_FAILED,
       message: `查询失败: ${errMsg}`,
     });
+  }
+});
+
+router.get('/contacts', async (req: Request, res: Response) => {
+  const phone = typeof req.query.phone === 'string' ? req.query.phone.trim() : '';
+
+  if (!phone) {
+    res.status(400).json({ code: ErrorCode.MISSING_PHONE, message: '缺少 phone 参数' });
+    return;
+  }
+
+  try {
+    const result = await listContacts(phone);
+    res.json({ code: 0, message: 'ok', data: result });
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : '未知错误';
+    logger.error('Contacts list error', { phone, error: errMsg });
+    res.status(502).json({ code: ErrorCode.CLI_FAILED, message: `查询失败: ${errMsg}` });
   }
 });
 
