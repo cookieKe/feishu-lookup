@@ -77,7 +77,7 @@ registerCommand('calendar.search', {
     {
       command: ['calendar', 'calendars', 'list'],
       args: ['--format', 'json', '--as', 'user'],
-      extract: { calendarId: 'data.calendars[0].calendar_id' },
+      extract: { calendarId: 'data.calendar_list[0].calendar_id' },
     },
     {
       command: ['calendar', 'events', 'search_event'],
