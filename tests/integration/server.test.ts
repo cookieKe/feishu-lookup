@@ -121,6 +121,11 @@ describe('Command List', () => {
     expect(names).toContain('calendar.events');
     expect(names).toContain('im.search');
     expect(names).toContain('docs.search');
+    // New commands
+    expect(names).toContain('im.search-by-phone');
+    expect(names).toContain('calendar.search');
+    expect(names).toContain('calendar.recent-events');
+    expect(names).toContain('task.list-todos');
   });
 });
 

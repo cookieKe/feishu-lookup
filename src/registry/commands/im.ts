@@ -70,6 +70,34 @@ registerCommand('im.list-chats', {
   ],
 });
 
+// ===== im.search-by-phone =====
+// 通过手机号查与该用户的聊天记录。2 步管线：bot 身份拿 user_id → user 身份拉 P2P 消息
+registerCommand('im.search-by-phone', {
+  description: '根据手机号查询与该用户的聊天记录',
+  params: {
+    phone: { type: 'string', required: true, description: '手机号（支持 +86 前缀）' },
+    limit: { type: 'number', required: false, default: 20, description: '返回条数（1-50）' },
+  },
+  steps: [
+    {
+      command: ['api', 'POST', '/open-apis/contact/v3/users/batch_get_id'],
+      args: ['--data', '{"mobiles":["{{phone:stripPlus}}"]}', '--as', 'bot'],
+      extract: { userId: 'data.user_list[0].user_id' },
+    },
+    {
+      command: ['im', '+chat-messages-list'],
+      args: [
+        '--user-id', '{{$0.userId}}',
+        '--page-size', '{{limit}}',
+        '--sort', 'desc',
+        '--format', 'json',
+        '--as', 'user',
+      ],
+    },
+  ],
+  outputStep: 1,
+});
+
 // ===== im.get-chat-info =====
 registerCommand('im.get-chat-info', {
   description: '获取群聊详细信息',

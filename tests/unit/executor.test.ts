@@ -228,7 +228,138 @@ describe('executePipeline', () => {
     });
   });
 
-  describe('outputStep selection', () => {
+  describe('im.search-by-phone (2-step pipeline)', () => {
+    const def: CommandDef = {
+      description: 'Search chat messages by phone',
+      params: {
+        phone: { type: 'string', required: true, description: 'Phone' },
+        limit: { type: 'number', required: false, default: 20, description: 'Limit' },
+      },
+      steps: [
+        {
+          command: ['api', 'POST', '/open-apis/contact/v3/users/batch_get_id'],
+          args: ['--data', '{"mobiles":["{{phone:stripPlus}}"]}', '--as', 'bot'],
+          extract: { userId: 'data.user_list[0].user_id' },
+        },
+        {
+          command: ['im', '+chat-messages-list'],
+          args: ['--user-id', '{{$0.userId}}', '--page-size', '{{limit}}', '--sort', 'desc', '--format', 'json', '--as', 'user'],
+        },
+      ],
+      outputStep: 1,
+    };
+
+    it('should resolve phone → user_id → chat messages', async () => {
+      mockRunCli.mockResolvedValueOnce({
+        success: true,
+        data: { code: 0, data: { user_list: [{ user_id: 'ou_xyz' }] } },
+      });
+      mockRunCli.mockResolvedValueOnce({
+        success: true,
+        data: { data: { messages: [{ msg_id: 'om_1', content: 'hello' }] } },
+      });
+
+      const result = await executePipeline(def, { phone: '+8613800138000', limit: 10 });
+
+      // Verify step 1 used --user-id with extracted value
+      const step1Args = mockRunCli.mock.calls[1][0];
+      const userIdIdx = step1Args.indexOf('--user-id') + 1;
+      expect(step1Args[userIdIdx]).toBe('ou_xyz');
+      expect(step1Args).toContain('--page-size');
+      expect(step1Args[step1Args.indexOf('--page-size') + 1]).toBe('10');
+
+      expect(result).toEqual({ data: { messages: [{ msg_id: 'om_1', content: 'hello' }] } });
+    });
+  });
+
+  describe('calendar.search (2-step with calendar_id extraction)', () => {
+    const def: CommandDef = {
+      description: 'Search calendar events by keyword',
+      params: {
+        query: { type: 'string', required: true, description: 'Search keyword' },
+      },
+      steps: [
+        {
+          command: ['calendar', 'calendars', 'list'],
+          args: ['--format', 'json', '--as', 'user'],
+          extract: { calendarId: 'data.calendars[0].calendar_id' },
+        },
+        {
+          command: ['calendar', 'events', 'search_event'],
+          args: ['--params', '{"calendar_id":"{{$0.calendarId}}"}', '--data', '{"query":"{{query}}"}', '--format', 'json', '--as', 'user'],
+        },
+      ],
+      outputStep: 1,
+    };
+
+    it('should extract calendar_id and use in search', async () => {
+      mockRunCli.mockResolvedValueOnce({
+        success: true,
+        data: { data: { calendars: [{ calendar_id: 'cal_primary_123' }] } },
+      });
+      mockRunCli.mockResolvedValueOnce({
+        success: true,
+        data: { data: { items: [{ summary: '周会' }] } },
+      });
+
+      const result = await executePipeline(def, { query: '周会' });
+
+      // Verify calendar_id was injected into params JSON
+      const step1Args = mockRunCli.mock.calls[1][0];
+      const paramsIdx = step1Args.indexOf('--params') + 1;
+      expect(step1Args[paramsIdx]).toContain('"calendar_id":"cal_primary_123"');
+
+      expect(result).toEqual({ data: { items: [{ summary: '周会' }] } });
+    });
+  });
+
+  describe('task.list-todos (single-step)', () => {
+    const def: CommandDef = {
+      description: 'List incomplete tasks',
+      params: {
+        query: { type: 'string', required: false, default: '', description: 'Search keyword' },
+        complete: { type: 'string', required: false, default: 'false', description: 'Completed?' },
+        page_size: { type: 'number', required: false, default: 20, description: 'Page size' },
+      },
+      steps: [
+        {
+          command: ['task', '+get-my-tasks'],
+          args: ['--query', '{{query}}', '--complete={{complete}}', '--page-size', '{{page_size}}', '--format', 'json', '--as', 'user'],
+        },
+      ],
+    };
+
+    it('should execute with incomplete filter by default', async () => {
+      mockRunCli.mockResolvedValueOnce({
+        success: true,
+        data: { data: { tasks: [{ summary: '完成报告' }] } },
+      });
+
+      // Route handler fills defaults before calling executor
+      const result = await executePipeline(def, { query: '', complete: 'false', page_size: 20 });
+
+      const args = mockRunCli.mock.calls[0][0];
+      expect(args).toContain('--complete=false');
+      expect(args).toContain('--page-size');
+      expect(args[args.indexOf('--page-size') + 1]).toBe('20');
+
+      expect(result).toEqual({ data: { tasks: [{ summary: '完成报告' }] } });
+    });
+
+    it('should allow querying completed tasks', async () => {
+      mockRunCli.mockResolvedValueOnce({
+        success: true,
+        data: { data: { tasks: [] } },
+      });
+
+      await executePipeline(def, { complete: 'true' });
+
+      const args = mockRunCli.mock.calls[0][0];
+      expect(args).toContain('--complete=true');
+    });
+  });
+
+describe('outputStep selection', () => {
     it('should return the specified outputStep', async () => {
       const def: CommandDef = {
         description: 'Multi-step with early output',

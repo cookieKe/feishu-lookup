@@ -145,3 +145,49 @@ describe('hasAllTemplateValues', () => {
     expect(hasAllTemplateValues('{{phone}} {{missing}}', params, variables)).toBe(false);
   });
 });
+
+describe('nowISO transform', () => {
+  it('should return current time in ISO 8601 format', () => {
+    const before = new Date();
+    const result = resolveTemplates(['{{_:nowISO}}'], { _: '' }, {});
+    const after = new Date();
+    const parsed = new Date(result[0]);
+    expect(parsed.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);
+    expect(parsed.getTime()).toBeLessThanOrEqual(after.getTime() + 1000);
+    expect(result[0]).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+  });
+
+  it('should ignore the input value', () => {
+    const r1 = resolveTemplates(['{{a:nowISO}}'], { a: 'ignored' }, {});
+    const r2 = resolveTemplates(['{{b:nowISO}}'], { b: 'also-ignored' }, {});
+    expect(r1[0]).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+    expect(r2[0]).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+});
+
+describe('endISO transform', () => {
+  it('should return time offset by N days', () => {
+    const before = new Date();
+    const result = resolveTemplates(['{{days:endISO}}'], { days: 5 }, {});
+    const expectedMin = new Date(before.getTime() + 5 * 86400000 - 2000);
+    const expectedMax = new Date(before.getTime() + 5 * 86400000 + 2000);
+    const parsed = new Date(result[0]);
+    expect(parsed.getTime()).toBeGreaterThanOrEqual(expectedMin.getTime());
+    expect(parsed.getTime()).toBeLessThanOrEqual(expectedMax.getTime());
+    expect(result[0]).toMatch(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/);
+  });
+
+  it('should handle 0 days (returns current time)', () => {
+    const before = new Date();
+    const result = resolveTemplates(['{{days:endISO}}'], { days: 0 }, {});
+    const parsed = new Date(result[0]);
+    expect(parsed.getTime()).toBeGreaterThanOrEqual(before.getTime() - 1000);
+    expect(parsed.getTime()).toBeLessThanOrEqual(before.getTime() + 2000);
+  });
+
+  it('should return empty string when input param is missing', () => {
+    // When the key is undefined, the resolver returns '' before calling the transform
+    const result = resolveTemplates(['{{missing:endISO}}'], {}, {});
+    expect(result[0]).toBe('');
+  });
+});

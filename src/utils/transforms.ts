@@ -11,12 +11,24 @@
  *   iso8601     - 将 "YYYY-MM-DD HH:mm" 转为 ISO 8601 格式
  *   dateCompact - 将日期转为 YYYYMMDD 紧凑格式
  *   joinComma   - 将数组用逗号连接为字符串
+ *   nowISO      - 忽略输入，返回当前时间的 ISO 8601 格式（含时区）
+ *   endISO      - 输入天数 N，返回（当前时间 + N 天）的 ISO 8601 格式（含时区）
  *   raw         - 原样转字符串（默认）
  */
 
 const TEMPLATE_REGEX = /\{\{([^:}]+?)(?::(\w+))?\}\}/g;
 
 type TransformFn = (val: unknown) => string;
+
+/** 将 Date 对象格式化为带时区的 ISO 8601 字符串 */
+function toISO(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const offset = -d.getTimezoneOffset();
+  const sign = offset >= 0 ? '+' : '-';
+  const offHours = pad(Math.floor(Math.abs(offset) / 60));
+  const offMinutes = pad(Math.abs(offset) % 60);
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}${sign}${offHours}:${offMinutes}`;
+}
 
 const TRANSFORMS: Record<string, TransformFn> = {
   raw: (val) => String(val ?? ''),
@@ -37,6 +49,11 @@ const TRANSFORMS: Record<string, TransformFn> = {
     return `${str}:00+08:00`;
   },
   joinComma: (val) => (Array.isArray(val) ? val.join(',') : String(val ?? '')),
+  nowISO: (_val) => toISO(new Date()),
+  endISO: (val) => {
+    const days = Number(val ?? 0);
+    return toISO(new Date(Date.now() + days * 86400000));
+  },
 };
 
 /**

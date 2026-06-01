@@ -14,6 +14,7 @@ import './registry/commands/user';
 import './registry/commands/calendar';
 import './registry/commands/im';
 import './registry/commands/docs';
+import './registry/commands/task';
 
 const app = express();
 

@@ -113,7 +113,7 @@ describe('GET /api/v1/exec/commands', () => {
     expect(body.code).toBe(0);
     const commands = body.data as Array<Record<string, unknown>>;
     expect(Array.isArray(commands)).toBe(true);
-    expect(commands.length).toBeGreaterThanOrEqual(16);
+    expect(commands.length).toBeGreaterThanOrEqual(20);
   });
 });
 
@@ -167,6 +167,22 @@ describe('POST /api/v1/exec — calendar commands', () => {
     const key = env('E2E_API_KEY', API_KEY);
     const { status } = await apiPost('/api/v1/exec', {
       command: 'calendar.list', params: {},
+    }, { apiKey: key });
+    expect([200, 502]).toContain(status);
+  });
+
+  it('calendar.search → searches events by keyword', async () => {
+    const key = env('E2E_API_KEY', API_KEY);
+    const { status } = await apiPost('/api/v1/exec', {
+      command: 'calendar.search', params: { query: '会议' },
+    }, { apiKey: key });
+    expect([200, 502]).toContain(status);
+  });
+
+  it('calendar.recent-events → returns recent events', async () => {
+    const key = env('E2E_API_KEY', API_KEY);
+    const { status } = await apiPost('/api/v1/exec', {
+      command: 'calendar.recent-events', params: { days: 7 },
     }, { apiKey: key });
     expect([200, 502]).toContain(status);
   });

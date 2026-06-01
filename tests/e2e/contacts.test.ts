@@ -138,6 +138,31 @@ describe('im.search', () => {
   });
 });
 
+// ===== im.search-by-phone =====
+describe('im.search-by-phone', () => {
+  it('根据手机号查聊天记录 → 200', async () => {
+    env('E2E_API_KEY', API_KEY);
+    const phone = env('E2E_PHONE', PHONE_A);
+    const { status, body } = await post('/api/v1/exec', {
+      command: 'im.search-by-phone', params: { phone, limit: 5 },
+    });
+    expect([200, 502]).toContain(status);
+    if (status === 200) expect(body.code).toBe(0);
+  });
+});
+
+// ===== task.list-todos =====
+describe('task.list-todos', () => {
+  it('查询未完成任务 → 200', async () => {
+    env('E2E_API_KEY', API_KEY);
+    const { status, body } = await post('/api/v1/exec', {
+      command: 'task.list-todos', params: {},
+    });
+    expect([200, 502]).toContain(status);
+    if (status === 200) expect(body.code).toBe(0);
+  });
+});
+
 // ===== docs.search =====
 describe('docs.search', () => {
   it('搜索文档 → 200', async () => {
