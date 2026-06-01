@@ -3,10 +3,17 @@ import cors from 'cors';
 import { config } from './config';
 import { authMiddleware } from './middleware/auth';
 import { rateLimitMiddleware } from './middleware/rateLimit';
+import { errorHandler } from './middleware/errorHandler';
 import { logger } from './utils/logger';
 import healthRouter from './routes/health';
-import lookupRouter from './routes/lookup';
-import contactsRouter from './routes/contacts';
+import execRouter from './routes/exec';
+
+// 确保所有命令已注册（副作用导入）
+import './registry';
+import './registry/commands/user';
+import './registry/commands/calendar';
+import './registry/commands/im';
+import './registry/commands/docs';
 
 const app = express();
 
@@ -17,25 +24,11 @@ app.use(express.json());
 // 健康检查路由（无需认证）
 app.use('/api/v1', healthRouter);
 
-// 查询路由（需要认证 + 限流）
-app.use('/api/v1', authMiddleware, rateLimitMiddleware, lookupRouter);
-app.use('/api/v1', authMiddleware, rateLimitMiddleware, contactsRouter);
+// 命令执行路由（需要认证 + 限流）
+app.use('/api/v1', authMiddleware, rateLimitMiddleware, execRouter);
 
 // 全局错误处理
-app.use(
-  (
-    err: Error,
-    _req: express.Request,
-    res: express.Response,
-    _next: express.NextFunction
-  ) => {
-    logger.error('Unhandled error', { error: err.message, stack: err.stack });
-    res.status(500).json({
-      code: 9999,
-      message: '服务内部错误',
-    });
-  }
-);
+app.use(errorHandler);
 
 // 启动服务
 if (config.apiKeys.length === 0) {
@@ -43,8 +36,10 @@ if (config.apiKeys.length === 0) {
 }
 
 app.listen(config.port, () => {
-  logger.info(`Feishu Lookup Service started`, { port: config.port });
+  logger.info(`Feishu CLI Proxy Service started`, { port: config.port });
   logger.info(`Health check: http://localhost:${config.port}/api/v1/health`);
+  logger.info(`Exec endpoint: http://localhost:${config.port}/api/v1/exec`);
+  logger.info(`Command list: http://localhost:${config.port}/api/v1/exec/commands`);
 });
 
 export default app;
