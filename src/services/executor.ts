@@ -118,7 +118,8 @@ export async function executePipeline(
       for (const [varName, jsonPath] of Object.entries(step.extract)) {
         const value = extractValue(result.data, jsonPath);
         if (value === undefined) {
-          if (step.optional) {
+          // 宽容提取：提取失败不抛异常，设为 null 继续（用于跨租户联系人等）
+          if (step.optional || step.lenientExtract) {
             ctx.variables[`$${i}.${varName}`] = null;
             continue;
           }

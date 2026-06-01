@@ -48,6 +48,8 @@ export interface StepDef {
   args: string[];
   /** 步骤失败是否非致命。true 时该步骤输出为 null，管线继续执行 */
   optional?: boolean;
+  /** 宽容提取：提取失败时不抛 NOT_FOUND，设为 null 继续执行（用于跨租户联系人等场景） */
+  lenientExtract?: boolean;
   /** 从步骤 JSON 输出中提取变量。key=变量名, value=JSON 点路径 */
   extract?: Record<string, string>;
 }

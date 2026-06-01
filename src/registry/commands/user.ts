@@ -21,6 +21,23 @@ registerCommand('user.search-by-phone', {
   outputStep: 1,
 });
 
+// ===== user.lookup-phone =====
+// 仅通过手机号查询是否在通讯录中（单步 batch_get_id）。
+// 对同租户用户返回 user_id + mobile，对跨租户外部联系人仅返回 mobile。
+// 配合 user.get-by-id 或 user.search-by-name 可进一步获取详情。
+registerCommand('user.lookup-phone', {
+  description: '通过手机号查用户是否存在（支持跨租户外部联系人）',
+  params: {
+    phone: { type: 'string', required: true, description: '手机号（支持 +86 前缀）' },
+  },
+  steps: [
+    {
+      command: ['api', 'POST', '/open-apis/contact/v3/users/batch_get_id'],
+      args: ['--data', '{"mobiles":["{{phone:stripPlus}}"]}', '--as', 'bot'],
+    },
+  ],
+});
+
 // ===== user.search-by-name =====
 registerCommand('user.search-by-name', {
   description: '通过姓名搜索飞书用户',
